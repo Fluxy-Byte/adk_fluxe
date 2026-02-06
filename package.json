@@ -1,0 +1,41 @@
+{
+  "name": "fluxy-agente",
+  "version": "1.0.0",
+  "description": "Backend para recebimento e envio de mensagem",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fluxy-Byte/fluxy-agente.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Fluxy-Byte/fluxy-agente/issues"
+  },
+  "homepage": "https://github.com/Fluxy-Byte/fluxy-agente#readme",
+  "devDependencies": {
+    "@google/adk-devtools": "^0.3.0",
+    "@types/node": "^25.2.1",
+    "@types/pg": "^8.16.0",
+    "@types/swagger-ui-express": "^4.1.8",
+    "prisma": "^7.3.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@google/adk": "^0.3.0",
+    "@prisma/adapter-pg": "^7.3.0",
+    "@prisma/client": "^7.3.0",
+    "amqplib": "^0.10.9",
+    "axios": "^1.13.4",
+    "dotenv": "^17.2.4",
+    "express": "^5.2.1",
+    "pg": "^8.18.0",
+    "swagger-ui-express": "^5.0.1"
+  }
+}

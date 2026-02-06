@@ -1,0 +1,29 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mongodb"
+}
+
+model Message {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  id_user             String
+  type_message        String
+  question_message    String
+  answer_message      String
+  date_recept_message DateTime
+  date_send_message   DateTime
+  status_message      String
+
+  createdAt DateTime @default(now())
+}
+
