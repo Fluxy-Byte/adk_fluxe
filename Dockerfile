@@ -7,10 +7,6 @@ WORKDIR /app
 # Copia package.json e lock
 COPY package*.json ./
 
-# Inicia conexão com bancos de dados
-RUN npx prisma generate --schema=prisma/postgres.prisma
-RUN npx prisma generate --schema=prisma/mongo.prisma
-
 # Instala dependências
 RUN npm install
 
@@ -21,7 +17,7 @@ COPY . .
 RUN npm run build
 
 # Expõe a porta do Express (mude se usar outra)
-EXPOSE 5096
+EXPOSE 8000
 
 # Inicia a aplicação
-CMD ["npm", "start"] 
+CMD ["npx", "adk api_server"] 

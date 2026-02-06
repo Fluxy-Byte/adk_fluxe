@@ -1,14 +1,8 @@
 import 'dotenv/config';
 import { FunctionTool, LlmAgent } from '@google/adk';
 import { z } from 'zod';
-import { connectRabbit } from "./src/infra/rabbitMQ/conection";
-
-try {
-    await connectRabbit()
-} catch (e: any) {
-    console.log("Erro ao iniciar conexão com rabbitmq: " + e)
-}
-
+import { createTaskCampaign } from "./src/services/producers/task.producer.vendas"
+ 
 const registerLead = new FunctionTool({
     name: 'register_lead',
     description: 'Registra no sistema os dados do cliente interessado em um produto.',
@@ -25,25 +19,34 @@ const registerLead = new FunctionTool({
         console.log('Produto:', produto);
         console.log('Interesse:', nivelInteresse);
 
-        // Aqui futuramente você pode salvar no banco, API, CRM etc
+        const dados = {
+            "nome": nome,
+            "produto": produto,
+            "nivelInteresse": nivelInteresse
+        }
+
+        createTaskCampaign(dados)
 
         return {
             status: 'success',
-            message: 'Lead registrado com sucesso!',
+            message: 'Agradecemos o seu interesse, Gabriel! Seu lead foi registrado com sucesso',
         };
     },
 });
 
 
 export const rootAgent = new LlmAgent({
-    name: 'sales_agent',
+    name: 'sales_agent_fluxy',
     model: 'gemini-2.5-flash',
     instruction: `
     Você é um consultor da Gamefic.
     Primeiramente colete o nome da pessoa.
     Segundo o produto desejado.
     Preciso que você defina o nivel que o cliente demostrou de interesse que podem ser: baixo, medio e alto
-    Quando tiver essas informações, registre usando o tool register_lead.
+    Quando tiver essas informações, registre usando o tool register_lead
   `,
     tools: [registerLead],
 });
+
+
+// 

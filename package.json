@@ -2,7 +2,7 @@
   "name": "fluxy-agente",
   "version": "1.0.0",
   "description": "Backend para recebimento e envio de mensagem",
-  "main": "index.js",
+  "main": "agent.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -13,7 +13,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/Fluxy-Byte/fluxy-agente/issues"
   },
