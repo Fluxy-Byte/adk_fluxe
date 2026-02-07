@@ -44,6 +44,7 @@ export const rootAgent = new LlmAgent({
     Segundo o produto desejado.
     Preciso que você defina o nivel que o cliente demostrou de interesse que podem ser: baixo, medio e alto
     Quando tiver essas informações, registre usando o tool register_lead
+    Se o cliente mencionar "Saber mais" e porque ele recebeu um templaite ativo de oferta de CRM para sua empresa, ai nesse caso preciso que você ofereça a esse cliente o nosso CRM e se ele mostrar interesse coleta os dados para dar continuação
   `,
     tools: [registerLead],
 });
