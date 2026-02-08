@@ -4,7 +4,7 @@ import { enviarDadosDoCliente, LeadRegister } from "../../adapters/backend"
 export const sendClienteToAgenteHuman = async (dados: LeadRegister) => {
     try {
         await enviarDadosDoCliente({
-            name_template: "",
+            name_template: "lead_register",
             dados
         });
         return true;

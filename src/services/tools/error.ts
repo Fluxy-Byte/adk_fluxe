@@ -4,7 +4,7 @@ import { enviarDadosDoCliente, LeadError } from "../../adapters/backend"
 export const error = async (dados: LeadError) => {
     try {
         await enviarDadosDoCliente({
-            name_template: "",
+            name_template: "error_lead",
             dados
         });
         return true;
