@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { enviarDadosDoCliente, LeadError } from "../../adapters/backend"
+import { enviarDadosDoCliente, LeadRegister } from "../../adapters/backend"
 
-export const error = async (dados: LeadError) => {
+export const sendClienteToAgenteHuman = async (dados: LeadRegister) => {
     try {
         await enviarDadosDoCliente({
             name_template: "",

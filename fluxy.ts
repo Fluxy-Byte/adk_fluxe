@@ -1,8 +1,8 @@
 import 'dotenv/config';
 import { FunctionTool, LlmAgent, InMemorySessionService } from '@google/adk';
 import { z } from 'zod';
-import { createTaskCampaign } from "./src/services/producers/task.producer.vendas";
 import { error } from "./src/services/tools/error"
+import { sendClienteToAgenteHuman } from "./src/services/tools/sendClienteToAgenteHuman";
 
 const registerLead = new FunctionTool({
     name: 'register_lead',
@@ -16,6 +16,7 @@ const registerLead = new FunctionTool({
     execute: async ({ nome, produto, nivelInteresse }, toolContext) => {
 
         const sessionState = toolContext;
+
         console.log('📌 Novo Lead Registrado');
         console.log('Nome:', nome);
         console.log('Produto:', produto);
@@ -26,10 +27,12 @@ const registerLead = new FunctionTool({
             "nome": nome,
             "produto": produto,
             "nivelInteresse": nivelInteresse,
-            "phone": sessionState?.invocationContext.session.id
+            "telefone": sessionState?.invocationContext.session.id ?? "",
+            "nomeAgente": process.env.NOME_AGENTE_VENDAS ?? "553432937119",
+            "telefoneAgente": process.env.NUMBER_VENDAS ?? "Gabriel Lopes",
         }
 
-        createTaskCampaign(dados)
+        await sendClienteToAgenteHuman(dados)
 
         return {
             status: 'success',
@@ -47,8 +50,19 @@ export const errorLead = new FunctionTool({
         problema: z.string().describe('Produto de interesse'),
     }),
 
-    execute: ({ nome, problema }) => {
-        error(nome, problema)
+    execute: ({ nome, problema }, toolContext) => {
+
+        const sessionState = toolContext;
+
+        const dados = {
+            "nome": nome,
+            "problema": problema,
+            "telefone": sessionState?.invocationContext.session.id ?? "",
+            "nomeAgente": process.env.NOME_AGENTE_SUPORTE ?? "553432937119",
+            "telefoneAgente": process.env.NUMBER_SUPORTE ?? "Gabriel Lopes",
+        }
+
+        error(dados);
 
         return {
             status: 'success',
@@ -56,7 +70,6 @@ export const errorLead = new FunctionTool({
         };
     },
 });
-
 
 export const rootAgent = new LlmAgent({
     name: 'sales_agent_fluxy',
@@ -128,7 +141,7 @@ Nunca registre sem esses 3 dados.
 
 FLUXO PADRÃO DE VENDA
 
-Se o cliente demonstrar interesse em qualquer momento:
+Se o cliente demonstrar interesse em qualquer momento em comprar ou ver algum produto:
 
 PASSO 1 — Nome  
 Se não souber o nome:
@@ -143,7 +156,7 @@ Pergunte o prazo ou impacto dessa demanda.
 PASSO 4 — Registro  
 Quando tiver os 3 dados:
 → Use register_lead
-→ Encerre com:
+→ Encerre gerando uma mensagem de agradecimento e que qualquer coisa estamos a disposição, segue um exemplo:
 
 "A Gamefic agradece o contato. Nosso time comercial entrará em contato em breve. Caso tenha mais dúvidas, estarei à disposição."
 
@@ -153,12 +166,17 @@ PALAVRA-CHAVE: "SABER MAIS"
 
 Se o cliente disser "Saber mais":
 
-1. Apresente-se brevemente
+1. Apresente-se brevemente que você e um agente especializado para os clientes da Gamefic
 2. Explique a Gamefic
 3. Ofereça o produto
 4. Solicite o nome (se não tiver)
 5. Pergunte urgência
-6. Siga fluxo padrão
+6. Siga fluxo padrão de:
+Quando tiver os 3 dados:
+→ Use register_lead
+→ Encerre gerando uma mensagem de agradecimento e que qualquer coisa estamos a disposição, segue um exemplo:
+
+"A Gamefic agradece o contato. Nosso time comercial entrará em contato em breve. Caso tenha mais dúvidas, estarei à disposição."
 
 Se o "Saber mais" estiver relacionado a CRM:
 → Ofereça o CRM da Gamefic.
@@ -167,7 +185,7 @@ Se o "Saber mais" estiver relacionado a CRM:
 
 PERGUNTAS FORA DE CONTEXTO
 
-Se a mensagem NÃO for sobre a Gamefic:
+Se a mensagem NÃO for sobre a Gamefic ou produtos que não fazem parte da Gamefic:
 
 1ª vez:
 → Responda com educação informando o foco do canal
@@ -197,6 +215,7 @@ Você deve:
 
 - Manter tom profissional
 - Ser objetivo
+- Sempre solicitar 1 informação por vez na mensagem
 - Não repetir perguntas já respondidas
 - Não entrar em loop
 - Não usar emojis
@@ -220,6 +239,8 @@ Fim.
     ,
     tools: [registerLead, errorLead],
 });
+
+
 
 
 // npx adk web - Iniciar o web para dev
