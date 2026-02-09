@@ -1,247 +1,298 @@
 import 'dotenv/config';
-import { FunctionTool, LlmAgent, InMemorySessionService } from '@google/adk';
+
+import { FunctionTool, LlmAgent } from '@google/adk';
 import { z } from 'zod';
-import { error } from "./src/services/tools/error"
-import { sendClienteToAgenteHuman } from "./src/services/tools/sendClienteToAgenteHuman";
 
-const registerLead = new FunctionTool({
-    name: 'register_lead',
-    description: 'Registra no sistema os dados do cliente interessado em um produto.',
-    parameters: z.object({
-        nome: z.string().describe('Nome do cliente'),
-        produto: z.string().describe('Produto de interesse'),
-        nivelInteresse: z.enum(['baixo', 'medio', 'alto']).describe('Nível de interesse do cliente'),
-    }),
+import { error } from './src/services/tools/error';
+import { sendClienteToAgenteHuman } from './src/services/tools/sendClienteToAgenteHuman';
 
-    execute: async ({ nome, produto, nivelInteresse }, toolContext) => {
+/* ======================================================
+   TYPES
+====================================================== */
 
-        const sessionState = toolContext;
+type SessionContext = any;
 
-        console.log('📌 Novo Lead Registrado');
-        console.log('Nome:', nome);
-        console.log('Produto:', produto);
-        console.log('Interesse:', nivelInteresse);
-        console.log("Session session:", sessionState?.invocationContext.session.id);
+/* ======================================================
+   REGISTER LEAD TOOL
+====================================================== */
 
-        const dados = {
-            "nome": nome,
-            "produto": produto,
-            "nivelInteresse": nivelInteresse,
-            "telefone": sessionState?.invocationContext.session.id ?? "",
-            "nomeAgente": process.env.NOME_AGENTE_VENDAS ?? "553432937119",
-            "telefoneAgente": process.env.NUMBER_VENDAS ?? "Gabriel Lopes",
-        }
+export const registerLead = new FunctionTool({
+  name: 'register_lead',
+  description: 'Registra um lead B2B qualificado no sistema Gamefic',
 
-        await sendClienteToAgenteHuman(dados)
+  parameters: z.object({
+    nome: z.string().min(2, 'Nome inválido'),
 
-        return {
-            status: 'success',
-            message: 'Agradecemos o seu interesse, Gabriel! Seu lead foi registrado com sucesso',
-        };
-    },
+    contexto: z.string().min(10, 'Contexto insuficiente'),
+
+    problemaCentral: z.string().min(10, 'Problema mal definido'),
+
+    objetivoLead: z.string().min(5, 'Objetivo fraco'),
+
+    solucao: z.string().min(5, 'Solução não clara'),
+
+    tomLead: z.enum([
+      'curioso',
+      'engajado',
+      'analitico',
+      'decisor',
+      'cetico'
+    ]),
+
+    urgenciaLead: z.enum([
+      'baixa',
+      'media',
+      'alta'
+    ]),
+
+    instrucao: z.string().min(10, 'Instrução incompleta')
+  }),
+
+  execute: async (params, toolContext: SessionContext) => {
+    try {
+      const {
+        nome,
+        contexto,
+        problemaCentral,
+        objetivoLead,
+        solucao,
+        tomLead,
+        urgenciaLead,
+        instrucao
+      } = params;
+
+      const session = toolContext?.invocationContext?.session;
+
+      const telefoneLead =
+        session?.user?.phone ??
+        process.env.DEFAULT_LEAD_PHONE ??
+        null;
+
+      /* ===============================
+         LOG ESTRUTURADO
+      =============================== */
+
+      console.log('[NEW LEAD]', {
+        nome,
+        contexto,
+        problemaCentral,
+        objetivoLead,
+        solucao,
+        tomLead,
+        urgenciaLead,
+        instrucao
+      });
+
+      /* ===============================
+         PAYLOAD
+      =============================== */
+
+      const dados = {
+        nome,
+        produto: contexto,
+        nivelInteresse: solucao,
+        problemaCentral,
+        objetivoLead,
+        tomLead,
+        urgenciaLead,
+        instrucao,
+
+        telefone: telefoneLead,
+
+        nomeAgente:
+          process.env.NOME_AGENTE_VENDAS ?? 'Agente Gamefic',
+
+        telefoneAgente:
+          process.env.NUMBER_VENDAS ?? '5534997801829'
+      };
+
+
+
+      await sendClienteToAgenteHuman(dados);
+
+      return {
+        status: 'success',
+        message:
+          'Obrigado pelo contato. Seu atendimento será continuado por um especialista.'
+      };
+
+    } catch (err) {
+      console.error('[REGISTER ERROR]', err);
+
+      return {
+        status: 'error',
+        message:
+          'Falha ao registrar lead. Tente novamente.'
+      };
+    }
+  }
 });
 
 
 export const errorLead = new FunctionTool({
-    name: 'error_lead',
-    description: 'Registra que cliente esta com problemas na plataforma',
-    parameters: z.object({
-        nome: z.string().describe('Nome do cliente'),
-        problema: z.string().describe('Produto de interesse'),
-    }),
+  name: 'error_lead',
+  description: 'Registra problemas técnicos do cliente',
 
-    execute: ({ nome, problema }, toolContext) => {
+  parameters: z.object({
+    nome: z.string().min(2),
 
-        const sessionState = toolContext;
+    problema: z.string().min(5),
 
-        const dados = {
-            "nome": nome,
-            "problema": problema,
-            "telefone": sessionState?.invocationContext.session.id ?? "",
-            "nomeAgente": process.env.NOME_AGENTE_SUPORTE ?? "553432937119",
-            "telefoneAgente": process.env.NUMBER_SUPORTE ?? "Gabriel Lopes",
-        }
+    etapa: z.enum([
+      'login',
+      'plataforma',
+      'pagamento',
+      'acesso',
+      'outro'
+    ])
+  }),
 
-        error(dados);
+  execute: async (params, toolContext: SessionContext) => {
+    try {
+      const { nome, problema, etapa } = params;
 
-        return {
-            status: 'success',
-            message: `Agradecemos o seu interesse, ${nome} Seu problema foi registrado com sucesso.`,
-        };
-    },
+      const session = toolContext?.invocationContext?.session;
+
+      const telefone =
+        session?.user?.phone ??
+        process.env.DEFAULT_SUPPORT_PHONE ??
+        null;
+
+      const dados = {
+        nome,
+        problema,
+        etapa,
+
+        telefone,
+
+        nomeAgente:
+          process.env.NOME_AGENTE_SUPORTE ?? 'Suporte Gamefic',
+
+        telefoneAgente:
+          process.env.NUMBER_SUPORTE ?? '5534997801829'
+      };
+
+      console.log('[SUPPORT]', dados);
+
+      await error(dados);
+
+      return {
+        status: 'success',
+        message:
+          `Obrigado, ${nome}. Nosso suporte já recebeu sua solicitação.`
+      };
+
+    } catch (err) {
+      console.error('[SUPPORT ERROR]', err);
+
+      return {
+        status: 'error',
+        message:
+          'Erro ao registrar suporte.'
+      };
+    }
+  }
 });
+
+
+/* ======================================================
+   ROOT AGENT
+====================================================== */
 
 export const rootAgent = new LlmAgent({
-    name: 'sales_agent_fluxy',
-    model: 'gemini-2.5-flash',
-    instruction: `
-Você é o Agente Comercial Oficial da Gamefic.
+  name: 'sales_agent_fluxy',
 
-Você atua como Sales Consultant B2B Enterprise, com postura equivalente a Salesforce, HubSpot, SAP e Workday.
+  model: 'gemini-2.5-flash',
 
-Seu papel é:
-- Qualificar cenários empresariais complexos
-- Tornar visíveis custos invisíveis de execução
-- Conectar estratégia, KPI e comportamento
-- Organizar o raciocínio do decisor até a decisão ser lógica
-- Nunca empurrar produto
-- Nunca ser informal demais
+  instruction: `
+  SYSTEM — GAMEFIC SALES INTELLIGENCE AGENT
 
-Você conduz clareza. Não pressão.
+You are the official Enterprise Sales Agent of Gamefic.
 
---------------------------------------------------
+You diagnose before proposing.
+You clarify before selling.
+You structure before closing.
 
-SOBRE A GAMEFIC
+━━━━━━━━━━━━━━━━━━━
+CORE PRINCIPLES
+━━━━━━━━━━━━━━━━━━━
 
-A Gamefic é uma plataforma de gestão por comportamento.
+• Never interrogate
+• Never use forms
+• Always infer
+• Precision > Speed
+• Clarity > Volume
 
-Ela transforma metas estratégicas em execução diária visível, mensurável e com consequência clara.
+━━━━━━━━━━━━━━━━━━━
+ABOUT GAMEFIC
+━━━━━━━━━━━━━━━━━━━
 
-- Não substitui liderança
-- Não cria cultura por discurso
-- Estrutura o ambiente para a cultura acontecer
+Gamefic is a behavioral execution system.
 
-Gamificação NÃO é:
-- Entretenimento
-- Estética
-- Motivação superficial
+Gamification = Methodology  
+Gamefic = Technology
 
-Gamificação é metodologia de gestão.
+━━━━━━━━━━━━━━━━━━━
+MANDATORY DATA
+━━━━━━━━━━━━━━━━━━━
 
-A Gamefic torna essa metodologia operável, mensurável e escalável.
+Before registering any lead, you must clearly identify:
 
---------------------------------------------------
+✓ Name  
+✓ Interest  
+✓ Urgency  
 
-OBJETIVO PRINCIPAL
+No exceptions.
 
-Seu objetivo é:
+━━━━━━━━━━━━━━━━━━━
+EXECUTION RULES
+━━━━━━━━━━━━━━━━━━━
 
-1. Identificar interesse real
-2. Coletar dados do lead
-3. Registrar corretamente
-4. Encerrar com clareza
+Only execute the register_lead tool when all mandatory data is explicit.
 
-Sem loops.
-Sem repetir perguntas já respondidas.
-Sem confundir fluxos.
+Otherwise, continue qualifying the lead.
 
---------------------------------------------------
+Execute the error_lead tool if the user deviates from Gamefic-related topics
+after three consecutive redirection attempts.
 
-DADOS OBRIGATÓRIOS DO LEAD
+If the user insists on unrelated subjects,
+respond politely and inform that this channel is restricted to Gamefic matters.
 
-Antes de registrar, você precisa ter:
+━━━━━━━━━━━━━━━━━━━
+QUESTIONING STYLE
+━━━━━━━━━━━━━━━━━━━
 
-- Nome do contato
-- Produto de interesse
-- Urgência da demanda
+• Executive  
+• Open-ended  
+• Strategic  
+• B2B-oriented  
 
-Nunca registre sem esses 3 dados.
+Examples:
 
---------------------------------------------------
+"What is currently limiting your execution?"  
+"What happens if nothing changes?"  
+"Where does performance break down?"
 
-FLUXO PADRÃO DE VENDA
+━━━━━━━━━━━━━━━━━━━
+LANGUAGE RULE
+━━━━━━━━━━━━━━━━━━━
 
-Se o cliente demonstrar interesse em qualquer momento em comprar ou ver algum produto:
+Always communicate with the user in Brazilian Portuguese.
+Never answer in English.
 
-PASSO 1 — Nome  
-Se não souber o nome:
-→ Pergunte educadamente.
+━━━━━━━━━━━━━━━━━━━
+FINAL PRINCIPLE
+━━━━━━━━━━━━━━━━━━━
 
-PASSO 2 — Produto  
-Confirme qual solução da Gamefic interessa.
+Those who organize understanding, control decisions.
+`,
 
-PASSO 3 — Urgência  
-Pergunte o prazo ou impacto dessa demanda.
-
-PASSO 4 — Registro  
-Quando tiver os 3 dados:
-→ Use register_lead
-→ Encerre gerando uma mensagem de agradecimento e que qualquer coisa estamos a disposição, segue um exemplo:
-
-"A Gamefic agradece o contato. Nosso time comercial entrará em contato em breve. Caso tenha mais dúvidas, estarei à disposição."
-
---------------------------------------------------
-
-PALAVRA-CHAVE: "SABER MAIS"
-
-Se o cliente disser "Saber mais":
-
-1. Apresente-se brevemente que você e um agente especializado para os clientes da Gamefic
-2. Explique a Gamefic
-3. Ofereça o produto
-4. Solicite o nome (se não tiver)
-5. Pergunte urgência
-6. Siga fluxo padrão de:
-Quando tiver os 3 dados:
-→ Use register_lead
-→ Encerre gerando uma mensagem de agradecimento e que qualquer coisa estamos a disposição, segue um exemplo:
-
-"A Gamefic agradece o contato. Nosso time comercial entrará em contato em breve. Caso tenha mais dúvidas, estarei à disposição."
-
-Se o "Saber mais" estiver relacionado a CRM:
-→ Ofereça o CRM da Gamefic.
-
---------------------------------------------------
-
-PERGUNTAS FORA DE CONTEXTO
-
-Se a mensagem NÃO for sobre a Gamefic ou produtos que não fazem parte da Gamefic:
-
-1ª vez:
-→ Responda com educação informando o foco do canal
-
-2ª vez:
-→ Reforce o direcionamento
-
-3ª vez:
-→ Ofereça contato com especialista
-
-Se o cliente aceitar:
-
-- Colete nome
-- Colete dúvida
-
-→ Use error_lead
-
-Finalize com:
-
-"A Gamefic agradece o contato. Nosso time de suporte entrará em contato em breve. Caso tenha mais dúvidas, estarei à disposição."
-
---------------------------------------------------
-
-REGRAS DE COMPORTAMENTO
-
-Você deve:
-
-- Manter tom profissional
-- Ser objetivo
-- Sempre solicitar 1 informação por vez na mensagem
-- Não repetir perguntas já respondidas
-- Não entrar em loop
-- Não usar emojis
-- Não ser informal
-- Não prometer prazos
-
-Se uma informação já existir no contexto, NÃO pergunte novamente.
-
-Sempre avance a conversa.
-
---------------------------------------------------
-
-ENCERRAMENTO
-
-Quando o lead for registrado:
-→ Não continue vendendo
-→ Apenas se coloque à disposição
-
-Fim.
-`
-    ,
-    tools: [registerLead, errorLead],
+  tools: [registerLead, errorLead]
 });
 
+/* ======================================================
+   START COMMANDS
 
-
-
-// npx adk web - Iniciar o web para dev
-// npx adk api_server - iniciar o serviço
+   npx adk web
+   npx adk api_server
+====================================================== */
