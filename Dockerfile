@@ -13,6 +13,9 @@ RUN npm install
 # Copia o resto do projeto
 COPY . .
 
+# Inicia conexão com bancos de dados
+RUN npx prisma generate
+
 # Expõe a porta do Express (mude se usar outra)
 EXPOSE 8000
 

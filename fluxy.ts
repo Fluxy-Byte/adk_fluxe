@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 import { FunctionTool, LlmAgent } from '@google/adk';
 import { z } from 'zod';
-
+import { updateNameLead } from './src/infra/database/contact';
 import { error } from './src/services/tools/error';
 import { sendClienteToAgenteHuman } from './src/services/tools/sendClienteToAgenteHuman';
 
@@ -62,7 +62,7 @@ export const registerLead = new FunctionTool({
       } = params;
 
       const session = toolContext?.invocationContext?.session;
-      
+
       const telefoneLead =
         session?.id ??
         process.env.DEFAULT_LEAD_PHONE ??
@@ -123,6 +123,62 @@ export const registerLead = new FunctionTool({
         status: 'error',
         message:
           'Falha ao registrar lead. Tente novamente.'
+      };
+    }
+  }
+});
+
+
+
+export const registerNameLead = new FunctionTool({
+  name: 'register_name_lead',
+  description: 'Registra o nome capturado do lead para o time comercial',
+
+  parameters: z.object({
+    nome: z.string().min(2, 'Nome inválido')
+  }),
+
+  execute: async (params, toolContext: SessionContext) => {
+    try {
+      const {
+        nome
+      } = params;
+
+      const session = toolContext?.invocationContext?.session;
+
+      const telefoneLead =
+        session?.id ??
+        process.env.DEFAULT_LEAD_PHONE ??
+        null;
+
+      /* ===============================
+         LOG ESTRUTURADO
+      =============================== */
+
+      console.log('[Atualizado nome do Lead]', {
+        nome
+      });
+
+      /* ===============================
+         PAYLOAD
+      =============================== */
+
+
+      await updateNameLead(telefoneLead, nome);
+
+      return {
+        status: 'success',
+        message:
+          `Contato atualizado com sucesso. O nome do lead é ${nome}.`
+      };
+
+    } catch (err) {
+      console.error('[REGISTER ERROR]', err);
+
+      return {
+        status: 'error',
+        message:
+          'Falha ao registrar nome do lead. Tente novamente.'
       };
     }
   }
@@ -215,6 +271,13 @@ Sua missão é:
 - Registrar leads qualificados para o time comercial quando nosso cliente demonstrar interesse em Gamefic,
 - Registrar problemas técnicos para o time de suporte quando o cliente mencionar ou solicitar ajuda.
 - Você atua como um Consultor de Vendas Corporativas B2B, com postura analítica, estratégica e executiva.
+
+Você precisa seguir as seguintes regras de interação, qualificação de leads, tratamento de erros e estilo de comunicação para garantir a melhor experiência para nossos clientes e a máxima eficiência na geração de leads qualificados para nosso time comercial.
+Primeiramente você deve se apresentar e perguntar o nome do cliente para iniciar a conversa.
+Apos coletar o nome do cliente, você deve atualizar o nome do lead usando a ferramenta register_name_lead para que o time comercial já tenha essa informação quando for abordar o cliente.
+Apos isso, você deve conduzir a conversa de forma estratégica para entender o contexto do cliente, o problema central que ele deseja resolver, o objetivo dele ao buscar uma solução como o Gamefic, o nível de urgência e o tom de comunicação dele.
+Quando o cliente demonstrar interesse em Gamefic, você deve executar a ferramenta register_lead para registrar um lead qualificado para o time comercial.
+Se o cliente mencionar ou solicitar ajuda com algum problema técnico, você deve executar a ferramenta error_lead para registrar o problema para o time de suporte.
 
 ━━━━━━━━━━━━━━━━━━━
 REGRAS DE INTERAÇÃO
@@ -320,7 +383,7 @@ Evite:
 
 
 ━━━━━━━━━━━━━━━━━━━
-DIRETIVA FINAL
+OBESERVAÇÕES FINAIS
 ━━━━━━━━━━━━━━━━━━━
 
 Nesse momento temos diversos tipos de clientes entrando em contato, desde aqueles que estão apenas buscando informações, até aqueles que já estão prontos para comprar ou que precisam de suporte técnico.
@@ -328,7 +391,7 @@ Nesse momento temos diversos tipos de clientes entrando em contato, desde aquele
 - CLIENTES COM DUVIDAS E NECESSIDADES DE SUPORTE: Dar suporte e resolver dúvidas é importante quando o cliente não está em estágio de interesse e sim de suporte.
 `,
 
-  tools: [registerLead, errorLead]
+  tools: [registerLead, registerNameLead, errorLead]
 });
 
 /* ======================================================

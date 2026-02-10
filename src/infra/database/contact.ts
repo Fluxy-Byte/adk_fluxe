@@ -67,3 +67,13 @@ export async function getAllContacts() {
     return await prisma.contato.findMany();
 }
 
+export async function updateNameLead(phone: string, name: string) {
+    return await prisma.contato.update({
+        where: {
+            phone
+        },
+        data: {
+            name
+        }
+    })
+}
