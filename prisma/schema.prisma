@@ -10,20 +10,15 @@ generator client {
 }
 
 datasource db {
-  provider = "mongodb"
+  provider = "postgresql"
 }
 
-model Message {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-
-  id_user             String
-  type_message        String
-  question_message    String
-  answer_message      String
-  date_recept_message DateTime
-  date_send_message   DateTime
-  status_message      String
-
-  createdAt DateTime @default(now())
+model Contato {
+  id                      Int       @id @default(autoincrement())
+  email                   String?  
+  name                    String?
+  phone                   String    @unique
+  start_date_conversation DateTime  @default(now())
+  last_date_conversation  DateTime? @default(now())
+  objetivoLead            String?
 }
-
