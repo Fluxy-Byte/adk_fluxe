@@ -62,9 +62,9 @@ export const registerLead = new FunctionTool({
       } = params;
 
       const session = toolContext?.invocationContext?.session;
-
+      
       const telefoneLead =
-        session?.user?.phone ??
+        session?.id ??
         process.env.DEFAULT_LEAD_PHONE ??
         null;
 
