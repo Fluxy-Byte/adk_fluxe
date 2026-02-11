@@ -22,3 +22,4 @@ model Contato {
   last_date_conversation  DateTime? @default(now())
   objetivoLead            String?
 }
+

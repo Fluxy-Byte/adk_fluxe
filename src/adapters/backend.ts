@@ -1,25 +1,24 @@
 import axios from "axios"
 
-interface Task {
+export interface Task {
     name_template: string,
-    dados: LeadRegister | LeadError
-}
-
-export interface LeadError {
-    nome: string,
-    problema: string,
-    telefone: string,
-    nomeAgente: string,
-    telefoneAgente: string,
+    dados: LeadRegister
 }
 
 export interface LeadRegister {
     nome: string,
-    produto: string,
-    nivelInteresse: string,
+    produto?: string,
+    nivelInteresse?: string,
+    problemaCentral?: string,
+    objetivoLead?: string,
+    tomLead?: string,
+    urgenciaLead?: string,
+    instrucao?: string,
     telefone: string,
     nomeAgente: string,
     telefoneAgente: string,
+    problema?: string,
+    etapa?: string,
 }
 
 export async function enviarDadosDoCliente(dados: Task) {
