@@ -26,11 +26,81 @@ interface RdDealResponse {
 
 const RD_API_BASE = process.env.RD_API_BASE ?? 'https://api.rd.services';
 
-function getToken(): string {
-  const token = process.env.RD_ACCESS_TOKEN ?? process.env.RD_API_TOKEN;
-  if (!token) {
-    throw new Error('Token da RD Station ausente. Configure RD_ACCESS_TOKEN ou RD_API_TOKEN no ambiente.');
+interface RdTokenResponse {
+  access_token?: string;
+  token?: string;
+  refresh_token?: string;
+  [key: string]: unknown;
+}
+
+async function requestToken(tokenBy: 'code' | 'refresh_token', body: URLSearchParams): Promise<RdTokenResponse> {
+  const url = `${RD_API_BASE}/auth/token?token_by=${tokenBy}`;
+  const { data } = await axios.post<RdTokenResponse>(url, body.toString(), {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    }
+  });
+
+  return data;
+}
+
+async function getToken(): Promise<string> {
+  const staticToken = process.env.RD_ACCESS_TOKEN ?? process.env.RD_API_TOKEN;
+  if (staticToken && staticToken !== 'token_aqui') {
+    return staticToken;
   }
+
+  const clientId = process.env.RD_CLIENT_ID;
+  const clientSecret = process.env.RD_CLIENT_SECRET;
+  const code = process.env.RD_CODE;
+  const refreshToken = process.env.RD_REFRESH_TOKEN;
+
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      'Credenciais da RD Station ausentes. Configure RD_ACCESS_TOKEN/RD_API_TOKEN ou RD_CLIENT_ID e RD_CLIENT_SECRET no ambiente.'
+    );
+  }
+
+  let data: RdTokenResponse | null = null;
+
+  if (refreshToken && refreshToken !== 'refresh_token_aqui') {
+    const refreshBody = new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken
+    });
+
+    try {
+      data = await requestToken('refresh_token', refreshBody);
+    } catch (error) {
+      if (!code) {
+        throw error;
+      }
+    }
+  }
+
+  if (!data) {
+    if (!code) {
+      throw new Error(
+        'RD_CODE ausente. Configure RD_CODE para o primeiro token ou RD_REFRESH_TOKEN para renovação.'
+      );
+    }
+
+    const codeBody = new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      code
+    });
+
+    data = await requestToken('code', codeBody);
+  }
+
+  const token = data.access_token ?? data.token;
+
+  if (!token) {
+    throw new Error('RD Station não retornou access_token na geração do token.');
+  }
+
   return token;
 }
 
@@ -112,7 +182,7 @@ async function createDeal(
 }
 
 export async function createLeadInRdMarketing(payload: RdLeadPayload) {
-  const token = getToken();
+  const token = await getToken();
   const pipelineId = payload.pipelineId ?? process.env.RD_PIPELINE_ID;
   const stageId = payload.stageId ?? process.env.RD_STAGE_ID;
 
