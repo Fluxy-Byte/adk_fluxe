@@ -22,6 +22,7 @@ export const registerLead = new FunctionTool({
 
   parameters: z.object({
     nome: z.string().min(2, 'Nome inválido'),
+    email: z.string().email('Email inválido'),
 
     contexto: z.string().min(10, 'Contexto insuficiente'),
 
@@ -52,6 +53,7 @@ export const registerLead = new FunctionTool({
     try {
       const {
         nome,
+        email,
         contexto,
         problemaCentral,
         objetivoLead,
@@ -71,6 +73,7 @@ export const registerLead = new FunctionTool({
 
       console.log('[NEW LEAD]', {
         nome,
+        email,
         contexto,
         problemaCentral,
         objetivoLead,
@@ -86,6 +89,7 @@ export const registerLead = new FunctionTool({
 
       const dados = {
         nome,
+        email,
         produto: contexto,
         nivelInteresse: solucao,
         problemaCentral,
@@ -188,6 +192,7 @@ export const errorLead = new FunctionTool({
 
   parameters: z.object({
     nome: z.string().min(2),
+    email: z.string().email(),
 
     problema: z.string().min(5),
 
@@ -202,7 +207,7 @@ export const errorLead = new FunctionTool({
 
   execute: async (params, toolContext: SessionContext) => {
     try {
-      const { nome, problema, etapa } = params;
+      const { nome, email, problema, etapa } = params;
 
       const session = toolContext?.invocationContext?.session;
 
@@ -213,6 +218,7 @@ export const errorLead = new FunctionTool({
 
       const dados = {
         nome,
+        email,
         problema,
         etapa,
 
@@ -281,6 +287,7 @@ CLIENTES COM INTERESSE EM GAMEFIC
 Campos obrigatórios para registro de lead:
 
 - nome
+- email
 - contexto (breve descrição do negócio e setor de atuação)
 - problema central (descrição do que o cliente deseja resolver com o Gamefic)
 - objetivoLead (o que o cliente espera alcançar com o Gamefic)
@@ -297,6 +304,7 @@ CLIENTES COM DUVIDAS E NECESSIDADES DE SUPORTE
 Campos obrigatórios para registro de suporte:
 
 - nome
+- email
 - problema (descrição do problema técnico enfrentado)
 - etapa (fase do processo onde o problema ocorreu: login, plataforma, pagamento, acesso ou outro)
 

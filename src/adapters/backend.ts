@@ -8,7 +8,7 @@ export interface Task {
 
 export interface LeadRegister {
     nome: string,
-    email?: string,
+    email: string,
     contexto?: string,
     solucao?: string,
     produto?: string,
@@ -32,25 +32,23 @@ export async function enviarLeadParaRD(payload: RdLeadPayload) {
 
 export async function enviarDadosDoCliente(dados: Task) {
     try {
+        const lead = dados.dados;
+
         // Primeiro, tenta criar/atualizar lead e deal na RD Station (se email estiver presente)
         try {
-            if (dados.dados.email) {
-                await enviarLeadParaRD({
-                    email: dados.dados.email,
-                    name: dados.dados.nome,
-                    phone: dados.dados.telefone,
-                    companyName: dados.dados.contexto,
-                    dealName: dados.dados.objetivoLead ?? dados.dados.problemaCentral ?? dados.dados.nome,
-                    tags: [
-                        dados.name_template,
-                        dados.dados.nivelInteresse,
-                        dados.dados.tomLead,
-                        dados.dados.urgenciaLead
-                    ].filter(Boolean) as string[]
-                });
-            } else {
-                console.warn('[RD_STATION] Lead sem email - integracao RD ignorada.');
-            }
+            await enviarLeadParaRD({
+                email: lead.email,
+                name: lead.nome,
+                phone: lead.telefone,
+                companyName: lead.contexto,
+                dealName: lead.objetivoLead ?? lead.problemaCentral ?? lead.nome,
+                tags: [
+                    dados.name_template,
+                    lead.nivelInteresse,
+                    lead.tomLead,
+                    lead.urgenciaLead
+                ].filter(Boolean) as string[]
+            });
         } catch (err) {
             console.error('[RD_STATION] Falha ao registrar lead na RD Station:', err);
         }
@@ -67,4 +65,3 @@ export async function enviarDadosDoCliente(dados: Task) {
         return false;
     }
 }
-

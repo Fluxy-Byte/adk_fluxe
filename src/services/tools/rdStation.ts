@@ -34,10 +34,20 @@ interface RdTokenResponse {
 }
 
 async function requestToken(tokenBy: 'code' | 'refresh_token', body: URLSearchParams): Promise<RdTokenResponse> {
-  const url = `${RD_API_BASE}/auth/token?token_by=${tokenBy}`;
+  // refresh flow usa /auth/token sem token_by; adiciona grant_type para compatibilidade
+  if (tokenBy === 'refresh_token' && !body.get('grant_type')) {
+    body.append('grant_type', 'refresh_token');
+  }
+
+  const url =
+    tokenBy === 'refresh_token'
+      ? `${RD_API_BASE}/auth/token`
+      : `${RD_API_BASE}/auth/token?token_by=${tokenBy}`;
+
   const { data } = await axios.post<RdTokenResponse>(url, body.toString(), {
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json'
     }
   });
 
@@ -46,10 +56,6 @@ async function requestToken(tokenBy: 'code' | 'refresh_token', body: URLSearchPa
 
 async function getToken(): Promise<string> {
   const staticToken = process.env.RD_ACCESS_TOKEN ?? process.env.RD_API_TOKEN;
-  if (staticToken && staticToken !== 'token_aqui') {
-    return staticToken;
-  }
-
   const clientId = process.env.RD_CLIENT_ID;
   const clientSecret = process.env.RD_CLIENT_SECRET;
   const code = process.env.RD_CODE;
@@ -63,6 +69,7 @@ async function getToken(): Promise<string> {
 
   let data: RdTokenResponse | null = null;
 
+  // tenta sempre renovar se houver refresh token disponível
   if (refreshToken && refreshToken !== 'refresh_token_aqui') {
     const refreshBody = new URLSearchParams({
       client_id: clientId,
@@ -73,7 +80,7 @@ async function getToken(): Promise<string> {
     try {
       data = await requestToken('refresh_token', refreshBody);
     } catch (error) {
-      if (!code) {
+      if (!code && !staticToken) {
         throw error;
       }
     }
@@ -95,6 +102,11 @@ async function getToken(): Promise<string> {
     data = await requestToken('code', codeBody);
   }
 
+  // fallback: usa token estático se definido (pode expirar)
+  if (!data && staticToken && staticToken !== 'token_aqui') {
+    return staticToken;
+  }
+
   const token = data.access_token ?? data.token;
 
   if (!token) {
@@ -107,7 +119,8 @@ async function getToken(): Promise<string> {
 function authHeaders(token: string) {
   return {
     Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    Accept: 'application/json'
   };
 }
 
@@ -115,46 +128,47 @@ function isNotFound(error: unknown) {
   return axios.isAxiosError(error) && error.response?.status === 404;
 }
 
+const RETRYABLE_STATUS = [500, 502, 503, 504];
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withRetry<T>(fn: () => Promise<T>, retries = 2, delayMs = 500): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+    if (retries > 0 && status && RETRYABLE_STATUS.includes(status)) {
+      await sleep(delayMs);
+      return withRetry(fn, retries - 1, delayMs * 2);
+    }
+    throw error;
+  }
+}
+
 async function fetchContactByEmail(email: string, token: string): Promise<RdContactResponse | null> {
   try {
     const url = `${RD_API_BASE}/platform/contacts/email/${encodeURIComponent(email)}`;
-    const { data } = await axios.get(url, { headers: authHeaders(token) });
+    const { data } = await withRetry(() => axios.get(url, { headers: authHeaders(token) }));
     return data;
   } catch (error) {
-    if (isNotFound(error)) {
-      return null;
-    }
+    if (isNotFound(error)) return null;
     throw error;
   }
 }
 
 async function createContact(payload: RdLeadPayload, token: string): Promise<RdContactResponse> {
   const body: Record<string, unknown> = {
-    name: payload.name,
     email: payload.email,
-    job_title: payload.jobTitle,
-    company_name: payload.companyName,
-    tags: payload.tags,
-    legal_bases: [
-      {
-        category: 'communications',
-        type: 'consent',
-        status: 'granted'
-      }
-    ]
+    name: payload.name,
+    mobile_phone: payload.phone
   };
 
-  if (payload.phone) {
-    body.phones = [
-      {
-        type: 'mobile',
-        number: payload.phone
-      }
-    ];
-  }
+  console.log('[RD_STATION] create contact payload', body);
 
   const url = `${RD_API_BASE}/platform/contacts`;
-  const { data } = await axios.post(url, body, { headers: authHeaders(token) });
+  const { data } = await withRetry(() => axios.post(url, body, { headers: authHeaders(token) }));
   return data;
 }
 
@@ -177,7 +191,7 @@ async function createDeal(
     }
   };
 
-  const { data } = await axios.post(url, body, { headers: authHeaders(token) });
+  const { data } = await withRetry(() => axios.post(url, body, { headers: authHeaders(token) }));
   return data;
 }
 
@@ -186,20 +200,52 @@ export async function createLeadInRdMarketing(payload: RdLeadPayload) {
   const pipelineId = payload.pipelineId ?? process.env.RD_PIPELINE_ID;
   const stageId = payload.stageId ?? process.env.RD_STAGE_ID;
 
-  if (!pipelineId || !stageId) {
-    throw new Error('RD_PIPELINE_ID ou RD_STAGE_ID não configurados no ambiente.');
-  }
+  const isValidId = (value?: string) => {
+    if (!value) return false;
+    const normalized = value.trim().toLowerCase();
+    return !['id_da_pipeline', 'id_do_stage', 'pipeline_id', 'stage_id', 'undefined', 'null'].includes(normalized);
+  };
+
+  const shouldCreateDeal = isValidId(pipelineId) && isValidId(stageId);
 
   try {
-    const existing = await fetchContactByEmail(payload.email, token);
-    const contact = existing ?? (await createContact(payload, token));
+    let contact: RdContactResponse | null = null;
+
+    // Tenta criar contato; se já existir (409), busca pelo email
+    try {
+      contact = await createContact(payload, token);
+    } catch (error) {
+      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      const alreadyExists =
+        axios.isAxiosError(error) &&
+        Array.isArray((error.response?.data as any)?.errors) &&
+        (error.response?.data as any).errors.some(
+          (e: any) => e?.error_type === 'EMAIL_ALREADY_IN_USE' || e?.error_type === 'CONTACT_ALREADY_EXISTS'
+        );
+
+      if (status === 409 || alreadyExists) {
+        contact = await fetchContactByEmail(payload.email, token);
+      } else {
+        throw error;
+      }
+    }
+
+    // Caso não tenha conseguido criar nem buscar, falha.
+    if (!contact) {
+      throw new Error('RD Station não retornou contato (criação ou busca falhou).');
+    }
+
     const contactId = (contact as any).uuid ?? (contact as any).id;
 
     if (!contactId) {
       throw new Error('RD Station não retornou identificador do contato.');
     }
 
-    const deal = await createDeal(contactId, payload, token, pipelineId, stageId);
+    let deal: RdDealResponse | null = null;
+
+    if (shouldCreateDeal) {
+      deal = await createDeal(contactId, payload, token, pipelineId as string, stageId as string);
+    }
 
     return {
       success: true,
@@ -208,7 +254,11 @@ export async function createLeadInRdMarketing(payload: RdLeadPayload) {
     };
   } catch (error) {
     const message = axios.isAxiosError(error)
-      ? error.response?.data ?? error.message
+      ? {
+          status: error.response?.status,
+          data: error.response?.data,
+          url: error.config?.url
+        }
       : (error as Error).message;
 
     console.error('[RD_STATION_LEAD_ERROR]', message);
