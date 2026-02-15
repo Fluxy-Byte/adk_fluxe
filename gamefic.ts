@@ -102,7 +102,6 @@ export const registerLead = new FunctionTool({
         urgenciaLead,
         instrucao,
         localidade,
-        localidade: undefined,
 
         telefone: telefoneLead,
 
