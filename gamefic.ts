@@ -46,7 +46,8 @@ export const registerLead = new FunctionTool({
       'alta'
     ]),
 
-    instrucao: z.string().min(10, 'Instrução incompleta')
+    instrucao: z.string().min(10, 'Instrução incompleta'),
+    localidade: z.string().optional()
   }),
 
   execute: async (params, toolContext: SessionContext) => {
@@ -60,7 +61,8 @@ export const registerLead = new FunctionTool({
         solucao,
         tomLead,
         urgenciaLead,
-        instrucao
+        instrucao,
+        localidade
       } = params;
 
       const session = toolContext?.invocationContext?.session;
@@ -80,7 +82,8 @@ export const registerLead = new FunctionTool({
         solucao,
         tomLead,
         urgenciaLead,
-        instrucao
+        instrucao,
+        localidade
       });
 
       /* ===============================
@@ -90,6 +93,7 @@ export const registerLead = new FunctionTool({
       const dados = {
         nome,
         email,
+        contexto,
         produto: contexto,
         nivelInteresse: solucao,
         problemaCentral,
@@ -97,6 +101,8 @@ export const registerLead = new FunctionTool({
         tomLead,
         urgenciaLead,
         instrucao,
+        localidade,
+        localidade: undefined,
 
         telefone: telefoneLead,
 
@@ -305,6 +311,8 @@ Campos obrigatórios para registro de suporte:
 
 - nome
 - email
+- nome da empresa
+- localidade
 - problema (descrição do problema técnico enfrentado)
 - etapa (fase do processo onde o problema ocorreu: login, plataforma, pagamento, acesso ou outro)
 
